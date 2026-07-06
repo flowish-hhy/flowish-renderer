@@ -14,6 +14,7 @@ public:
     [[nodiscard]] VkDeviceSize size() const {return _size; };
 
 private:
+\
 
     VkBuffer _buffer = VK_NULL_HANDLE;
     VkDeviceMemory _memory = VK_NULL_HANDLE;

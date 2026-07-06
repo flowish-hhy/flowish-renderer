@@ -275,13 +275,30 @@ int main() {
     copyBuffer(device.device(), commandPool.handle(), device.graphicsQueue(),
         stagingIndexBuffer.handle(),indexBuffer.handle(), indexSize );
 
-    FlowishDescriptor descriptor(device.device());
+    DescriptorLayoutBuilder builder;
+    auto layout = builder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+    .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+    .build(device.device(),VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT);
+
+    std::vector<DescriptorAllocator::PoolSizeRatio> ratios = {
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3.0f},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4.0f},
+    };
+    DescriptorAllocator allocator(device.device(), 10, ratios);
+    auto set = allocator.allocate(layout);
+
+    DescriptorWriter writer;
+
+
     FlowishBuffer uniformBuffer(device.physicalDevice(),device.device(),sizeof(UniformBufferObject),
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    descriptor.writeUniformBuffer(0,uniformBuffer.handle(),sizeof(UniformBufferObject));
+    writer.writeBuffer(0,uniformBuffer.handle(), sizeof(UniformBufferObject),0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
     FlowishSampler sampler(device.device());
-    descriptor.writeCombinedImageSampler(1, textureImage.view(), sampler.handle());
+    writer.writeImage(1, textureImage.view(),sampler.handle(),
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+
+    writer.updateSet(device.device(),set);
 
     void* uboMapped = nullptr;
     vkMapMemory(device.device(), uniformBuffer.memory(), 0, sizeof(UniformBufferObject), 0, &uboMapped);
@@ -291,14 +308,14 @@ int main() {
     auto fragCode = readFile("Shader/triangle.frag.spv");
     FlowishShaderModule vertShader(device.device(), vertCode);
     FlowishShaderModule fragShader(device.device(), fragCode);
-    FlowishPipeline pipeline(device.device(),renderpass.handle(), vertShader.handle(), fragShader.handle(),descriptor.layout());
+    FlowishPipeline pipeline(device.device(),renderpass.handle(), vertShader.handle(), fragShader.handle(),layout);
     FlowishFramebuffers framebuffers(device.device(), renderpass.handle(), swapchain.imageViews(), swapchain.extent(),depthImage.view());
     FlowishSyncObjects sync(device.device());
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
         drawFrame(device.device(), swapchain.handle(), device.graphicsQueue(), device.presentQueue()
             , commandPool.commandBuffer(), renderpass.handle(), framebuffers, swapchain.extent(),
-            pipeline.handle(), pipeline.layout(), descriptor.set(),
+            pipeline.handle(), pipeline.layout(), set,
             sync, buffer.handle(), indexBuffer.handle(), indexCount, uboMapped);
 
     }

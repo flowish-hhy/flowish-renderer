@@ -93,6 +93,9 @@ add_executable(flowish main.cpp
         Base/FlowishSampler.cpp
         Base/FlowishSampler.h
         3rdparty/stb/stb_image.h)
+
+
+
 compile_shaders(flowish ${CMAKE_SOURCE_DIR}/Shader)
 
 target_link_libraries(flowish PRIVATE Vulkan::Vulkan glfw glm::glm tinyobjloader)
