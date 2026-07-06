@@ -49,7 +49,7 @@ FlowishPipeline::FlowishPipeline(VkDevice _device, VkRenderPass _renderPass, VkS
     auto attributeDesc = getAttributeDescriptions();
     vertexInputInfo.vertexBindingDescriptionCount = 1;
     vertexInputInfo.pVertexBindingDescriptions = &bindingDesc;
-    vertexInputInfo.vertexAttributeDescriptionCount = 2;
+    vertexInputInfo.vertexAttributeDescriptionCount = 3;
     vertexInputInfo.pVertexAttributeDescriptions = attributeDesc.data();
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};

@@ -5,7 +5,8 @@
 
 struct Vertex {
     glm::vec3 pos;
-    glm::vec3 color;
+    glm::vec3 normal;
+    glm::vec2 texCoords;
 };
 
 static VkVertexInputBindingDescription getBindingDescription() {
@@ -17,14 +18,18 @@ static VkVertexInputBindingDescription getBindingDescription() {
     return bindingDescription;
 }
 
-static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
+static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
     return {{
         {.location = 0, .binding = 0,
             .format = VK_FORMAT_R32G32B32_SFLOAT,
             .offset = static_cast<uint32_t>(offsetof(Vertex, pos))},
         {.location = 1, .binding = 0,
             .format = VK_FORMAT_R32G32B32_SFLOAT,
-            .offset = static_cast<uint32_t>(offsetof(Vertex, color))},
+            .offset = static_cast<uint32_t>(offsetof(Vertex, normal))},
+        {
+            .location = 2, .binding = 0,
+            .format = VK_FORMAT_R32G32_SFLOAT,
+            .offset = static_cast<uint32_t>(offsetof(Vertex, texCoords))},
     }};
 }
 

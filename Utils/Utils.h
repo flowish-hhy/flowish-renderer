@@ -20,3 +20,5 @@ inline std::vector<char> readFile(const std::string& path) {
 void copyBuffer(VkDevice device, VkCommandPool pool, VkQueue queue, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 uint32_t findMemoryType(VkPhysicalDevice _physicalDevice, uint32_t typeBits, VkMemoryPropertyFlags properties);
 
+void transitionImageLayout(VkDevice device, VkCommandPool pool, VkQueue queue, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);
+void copyBufferToImage(VkDevice device, VkCommandPool pool, VkQueue queue, VkBuffer srcBuffer, VkImage dstImage, uint32_t width, uint32_t height);

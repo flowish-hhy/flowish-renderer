@@ -8,7 +8,8 @@ public:
 
     [[nodiscard]] VkDescriptorSetLayout layout() const {return _descriptorSetLayout;}
     [[nodiscard]] VkDescriptorSet set() const {return _descriptorSet;}
-    void writeUniformBuffer(uint32_t binding, VkBuffer buffer, VkDeviceSize size);
+    void writeUniformBuffer(uint32_t binding, VkBuffer buffer, VkDeviceSize size) const;
+    void writeCombinedImageSampler(uint32_t binding, VkImageView imageView, VkSampler sampler) const;
 
 private:
     VkDevice _device = VK_NULL_HANDLE;

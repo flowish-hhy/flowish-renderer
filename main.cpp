@@ -15,8 +15,10 @@
 #include "Base/FlowishSwapchain.h"
 #include "Base/FlowishSyncObjects.h"
 #include <glm/gtc/matrix_transform.hpp>
-
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 #include "Base/FlowishImage.h"
+#include "Base/FlowishSampler.h"
 #include "Model/FlowishModel.h"
 #include "Utils/Utils.h"
 
@@ -183,6 +185,45 @@ int main() {
     FlowishCommandPool commandPool(device.device(), device.queueFamilyIndices());
 
     FlowishModel model("Assets/viking_room.obj");
+    int w,h,ch;
+    stbi_uc * pixels = stbi_load("Assets/viking_room.png", &w, &h, &ch, STBI_rgb_alpha);
+    if (!pixels) throw std::runtime_error("failed to load texture: Assets/viking_room.png");
+    VkDeviceSize imageSize = static_cast<VkDeviceSize>(w) * h * 4;
+
+    FlowishBuffer textureBuffer(device.physicalDevice(), device.device(), imageSize,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    {
+        void * data;
+        vkMapMemory(device.device(), textureBuffer.memory(), 0, imageSize, 0, &data);
+        memcpy(data, pixels, imageSize);
+        vkUnmapMemory(device.device(), textureBuffer.memory());
+    }
+    stbi_image_free(pixels);
+
+
+    FlowishImage textureImage(device.device(), device.physicalDevice(), w, h,
+        VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        VK_IMAGE_ASPECT_COLOR_BIT);
+
+    transitionImageLayout(device.device(),commandPool.handle(),
+        device.graphicsQueue(), textureImage.image(),
+        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+    copyBufferToImage(device.device(), commandPool.handle(), device.graphicsQueue(), textureBuffer.handle(),
+        textureImage.image(), w, h);
+
+    transitionImageLayout(device.device(),commandPool.handle(),
+    device.graphicsQueue(), textureImage.image(),
+    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+
+
+
+
     const auto& vertices = model.vertices();
     const auto& indices  = model.indices();
     const uint32_t indexCount = static_cast<uint32_t>(indices.size());
@@ -191,11 +232,13 @@ int main() {
     FlowishBuffer staging(device.physicalDevice(),device.device(),bufferSize,
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    {
+        void * data;
+        vkMapMemory(device.device(), staging.memory(), 0, bufferSize, 0, &data);
+        memcpy(data, vertices.data(), bufferSize);
+        vkUnmapMemory(device.device(), staging.memory());
+    }
 
-    void * data;
-    vkMapMemory(device.device(), staging.memory(), 0, bufferSize, 0, &data);
-    memcpy(data, vertices.data(), bufferSize);
-    vkUnmapMemory(device.device(), staging.memory());
 
     FlowishBuffer buffer(device.physicalDevice(),device.device(),bufferSize,
         VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -211,9 +254,13 @@ int main() {
     VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    vkMapMemory(device.device(), stagingIndexBuffer.memory(), 0, indexSize, 0, &data);
-    memcpy(data, indices.data(), indexSize);
-    vkUnmapMemory(device.device(), stagingIndexBuffer.memory());
+    {
+        void * data;
+        vkMapMemory(device.device(), stagingIndexBuffer.memory(), 0, indexSize, 0, &data);
+        memcpy(data, indices.data(), indexSize);
+        vkUnmapMemory(device.device(), stagingIndexBuffer.memory());
+
+    }
 
     FlowishBuffer indexBuffer(device.physicalDevice(),device.device(),indexSize,
     VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -227,6 +274,9 @@ int main() {
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     descriptor.writeUniformBuffer(0,uniformBuffer.handle(),sizeof(UniformBufferObject));
+    FlowishSampler sampler(device.device());
+    descriptor.writeCombinedImageSampler(1, textureImage.view(), sampler.handle());
+
     void* uboMapped = nullptr;
     vkMapMemory(device.device(), uniformBuffer.memory(), 0, sizeof(UniformBufferObject), 0, &uboMapped);
 

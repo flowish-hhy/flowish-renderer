@@ -61,13 +61,13 @@ FlowishImage::FlowishImage(VkDevice device, VkPhysicalDevice physicalDevice, uin
 
 
 FlowishImage::~FlowishImage() {
+    if (_imageView != VK_NULL_HANDLE) {
+        vkDestroyImageView(_device,_imageView,nullptr);
+    }
     if (_image != VK_NULL_HANDLE) {
         vkDestroyImage(_device,_image,nullptr);
     }
     if (_memory != VK_NULL_HANDLE) {
         vkFreeMemory(_device,_memory,nullptr);
-    }
-    if (_imageView != VK_NULL_HANDLE) {
-        vkDestroyImageView(_device,_imageView,nullptr);
     }
 }
