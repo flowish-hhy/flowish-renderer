@@ -3,7 +3,7 @@
 
 class FlowishPipeline {
 public:
-    FlowishPipeline(VkDevice _device, VkRenderPass _renderPass, VkShaderModule vert, VkShaderModule frag);
+    FlowishPipeline(VkDevice _device, VkRenderPass _renderPass, VkShaderModule vert, VkShaderModule frag, VkDescriptorSetLayout layout);
     ~FlowishPipeline();
     FlowishPipeline(const FlowishPipeline&) = delete;
     FlowishPipeline& operator=(const FlowishPipeline&) = delete;

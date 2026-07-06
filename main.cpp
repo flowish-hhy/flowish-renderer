@@ -4,6 +4,7 @@
 #include "Base/FlowishBuffer.h"
 #include "Core/Vertex.h"
 #include "Base/FlowishCommandPool.h"
+#include "Base/FlowishDescriptor.h"
 #include "Base/FlowishDevice.h"
 #include "Base/FlowishFrameBuffer.h"
 #include "Base/FlowishInstance.h"
@@ -13,6 +14,7 @@
 #include "Base/FlowishSurface.h"
 #include "Base/FlowishSwapchain.h"
 #include "Base/FlowishSyncObjects.h"
+#include <glm/gtc/matrix_transform.hpp>
 #include "Utils/Utils.h"
 
 void recordCommandBuffer(
@@ -21,6 +23,8 @@ void recordCommandBuffer(
     VkFramebuffer framebuffer,
     VkExtent2D extent,
     VkPipeline pipeline,
+    VkPipelineLayout pipelineLayout,
+    VkDescriptorSet descriptorSet,
     VkBuffer vertexBuffer,
     VkBuffer indexBuffer) {
     vkResetCommandBuffer(commandBuffer, 0);
@@ -62,6 +66,8 @@ void recordCommandBuffer(
     VkDeviceSize offsets[1] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0 , 1, vbs, offsets);
     vkCmdBindIndexBuffer(commandBuffer,indexBuffer,0,VK_INDEX_TYPE_UINT32);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+        pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
     vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
@@ -80,10 +86,12 @@ void drawFrame(
     FlowishFramebuffers& framebuffers,
     VkExtent2D extent,
     VkPipeline pipeline,
+    VkPipelineLayout pipelineLayout,
+    VkDescriptorSet descriptorSet,
     FlowishSyncObjects& sync,
     VkBuffer vertexBuffer,
-    VkBuffer indexBuffer) {
-
+    VkBuffer indexBuffer,
+    void* uboMapped) {
     VkFence fence = sync.getFence();
     vkWaitForFences(device, 1, &fence,VK_TRUE, UINT64_MAX);
     vkResetFences(device, 1, &fence);
@@ -91,7 +99,20 @@ void drawFrame(
     uint32_t imageIndex = 0;
     vkAcquireNextImageKHR(device,swapchain,UINT64_MAX,sync.imageAvailable(),VK_NULL_HANDLE,&imageIndex);
 
-    recordCommandBuffer(commandBuffer,renderPass,framebuffers.get(imageIndex),extent,pipeline,vertexBuffer,indexBuffer);
+    auto t = static_cast<float>(glfwGetTime());
+    UniformBufferObject ubo = {};
+    ubo.model = glm::rotate(glm::mat4(1.0f), t * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view  = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
+                            glm::vec3(0.0f, 0.0f, 0.0f),
+                            glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.proj  = glm::perspective(glm::radians(45.0f),
+                                 static_cast<float>(extent.width) / static_cast<float>(extent.height),
+                                 0.1f, 10.0f);
+    ubo.proj[1][1] *= -1;
+    memcpy(uboMapped, &ubo, sizeof(ubo));
+
+    recordCommandBuffer(commandBuffer,renderPass,framebuffers.get(imageIndex),extent,pipeline,
+        pipelineLayout, descriptorSet, vertexBuffer,indexBuffer);
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -183,23 +204,34 @@ int main() {
     copyBuffer(device.device(), commandPool.handle(), device.graphicsQueue(),
         stagingIndexBuffer.handle(),indexBuffer.handle(), indexSize );
 
+    FlowishDescriptor descriptor(device.device());
+    FlowishBuffer uniformBuffer(device.physicalDevice(),device.device(),sizeof(UniformBufferObject),
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    descriptor.writeUniformBuffer(0,uniformBuffer.handle(),sizeof(UniformBufferObject));
+
+    void* uboMapped = nullptr;
+    vkMapMemory(device.device(), uniformBuffer.memory(), 0, sizeof(UniformBufferObject), 0, &uboMapped);
+
 
     auto vertCode = readFile("Shader/triangle.vert.spv");
     auto fragCode = readFile("Shader/triangle.frag.spv");
     FlowishShaderModule vertShader(device.device(), vertCode);
     FlowishShaderModule fragShader(device.device(), fragCode);
-    FlowishPipeline pipeline(device.device(),renderpass.handle(), vertShader.handle(), fragShader.handle());
+    FlowishPipeline pipeline(device.device(),renderpass.handle(), vertShader.handle(), fragShader.handle(),descriptor.layout());
     FlowishFramebuffers framebuffers(device.device(), renderpass.handle(), swapchain.imageViews(), swapchain.extent());
     FlowishSyncObjects sync(device.device());
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
         drawFrame(device.device(), swapchain.handle(), device.graphicsQueue(), device.presentQueue()
             , commandPool.commandBuffer(), renderpass.handle(), framebuffers, swapchain.extent(),
-            pipeline.handle(), sync, buffer.handle(),indexBuffer.handle());
+            pipeline.handle(), pipeline.layout(), descriptor.set(),
+            sync, buffer.handle(), indexBuffer.handle(), uboMapped);
 
     }
 
     vkDeviceWaitIdle(device.device());
+    vkUnmapMemory(device.device(), uniformBuffer.memory());
 
 
     glfwDestroyWindow(window);
@@ -207,3 +239,13 @@ int main() {
 
     return 0;
 }
+
+FlowishDescriptor::~FlowishDescriptor() {
+    if (_descriptorSetLayout != VK_NULL_HANDLE) {
+        vkDestroyDescriptorSetLayout(_device, _descriptorSetLayout, nullptr);
+    }
+    if (_descriptorPool != VK_NULL_HANDLE) {
+        vkDestroyDescriptorPool(_device, _descriptorPool, nullptr);
+    }
+}
+

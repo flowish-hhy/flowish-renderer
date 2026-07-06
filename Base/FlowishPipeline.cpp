@@ -6,12 +6,13 @@
 #include "../Core/Vertex.h"
 
 
-FlowishPipeline::FlowishPipeline(VkDevice _device, VkRenderPass _renderPass, VkShaderModule vert, VkShaderModule frag)
+FlowishPipeline::FlowishPipeline(VkDevice _device, VkRenderPass _renderPass, VkShaderModule vert, VkShaderModule frag,
+    VkDescriptorSetLayout layout)
     : _device(_device) {
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 0;
-    pipelineLayoutInfo.pSetLayouts = nullptr;
+    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.pSetLayouts = &layout;
     pipelineLayoutInfo.pushConstantRangeCount = 0;
 
     if (vkCreatePipelineLayout(_device,&pipelineLayoutInfo,nullptr,&_pipelineLayout) != VK_SUCCESS) {
