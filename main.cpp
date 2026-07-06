@@ -21,7 +21,8 @@ void recordCommandBuffer(
     VkFramebuffer framebuffer,
     VkExtent2D extent,
     VkPipeline pipeline,
-    VkBuffer vertexBuffer) {
+    VkBuffer vertexBuffer,
+    VkBuffer indexBuffer) {
     vkResetCommandBuffer(commandBuffer, 0);
     VkCommandBufferBeginInfo beginInfo = {};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -60,7 +61,8 @@ void recordCommandBuffer(
     VkBuffer vbs[] = {vertexBuffer};
     VkDeviceSize offsets[1] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0 , 1, vbs, offsets);
-    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+    vkCmdBindIndexBuffer(commandBuffer,indexBuffer,0,VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
@@ -79,7 +81,8 @@ void drawFrame(
     VkExtent2D extent,
     VkPipeline pipeline,
     FlowishSyncObjects& sync,
-    VkBuffer vertexBuffer) {
+    VkBuffer vertexBuffer,
+    VkBuffer indexBuffer) {
 
     VkFence fence = sync.getFence();
     vkWaitForFences(device, 1, &fence,VK_TRUE, UINT64_MAX);
@@ -88,7 +91,7 @@ void drawFrame(
     uint32_t imageIndex = 0;
     vkAcquireNextImageKHR(device,swapchain,UINT64_MAX,sync.imageAvailable(),VK_NULL_HANDLE,&imageIndex);
 
-    recordCommandBuffer(commandBuffer,renderPass,framebuffers.get(imageIndex),extent,pipeline,vertexBuffer);
+    recordCommandBuffer(commandBuffer,renderPass,framebuffers.get(imageIndex),extent,pipeline,vertexBuffer,indexBuffer);
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -138,9 +141,10 @@ int main() {
     FlowishRenderPass renderpass(device.device(), swapchain.format());
 
     std::vector<Vertex> vertices = {
-        {{0.0f , -0.5f } , {1, 0 ,0}},
+        {{-0.5f , -0.5f } , {1, 0 ,0}},
+        {{0.5f , -0.5f } , {1, 0 ,0}},
         {{0.5f , 0.5f } , {1, 0 ,0}},
-        {{-0.5f , 0.5f } , {1, 0 ,0}},
+        {{-0.5f , 0.5f } , {1, 1 ,1}},
     };
     VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
     FlowishBuffer buffer(device.physicalDevice(),device.device(),bufferSize,
@@ -151,6 +155,20 @@ int main() {
     vkMapMemory(device.device(), buffer.memory(), 0, bufferSize, 0, &data);
     memcpy(data, &vertices[0], bufferSize);
     vkUnmapMemory(device.device(), buffer.memory());
+
+
+    std::vector<uint32_t> indices = {0 , 1, 2, 2 ,3 ,0};
+    VkDeviceSize indexSize = sizeof(uint32_t) * 6;
+    FlowishBuffer indexBuffer(device.physicalDevice(),device.device(),indexSize,
+    VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    vkMapMemory(device.device(), indexBuffer.memory(), 0, indexSize, 0, &data);
+    memcpy(data, &indices[0], indexSize);
+    vkUnmapMemory(device.device(), indexBuffer.memory());
+
+
+
 
     auto vertCode = readFile("Shader/triangle.vert.spv");
     auto fragCode = readFile("Shader/triangle.frag.spv");
@@ -164,7 +182,7 @@ int main() {
         glfwPollEvents();
         drawFrame(device.device(), swapchain.handle(), device.graphicsQueue(), device.presentQueue()
             , commandPool.commandBuffer(), renderpass.handle(), framebuffers, swapchain.extent(),
-            pipeline.handle(), sync, buffer.handle());
+            pipeline.handle(), sync, buffer.handle(),indexBuffer.handle());
 
     }
 

@@ -22,6 +22,29 @@ FetchContent_Declare(
         GIT_TAG        1.0.1
 )
 FetchContent_MakeAvailable(glm)
+set(GLSLC "C:/VulkanSDK/1.4.350.0/Bin/glslc.exe")
+
+function(compile_shaders TARGET_NAME SHADER_DIR)
+    file(GLOB_RECURSE SHADER_SOURCES
+            ${SHADER_DIR}/*.vert
+            ${SHADER_DIR}/*.frag
+            ${SHADER_DIR}/*.comp
+            ${SHADER_DIR}/*.geom
+            ${SHADER_DIR}/*.tesc
+            ${SHADER_DIR}/*.tese
+    )
+    set(SHADER_COMMANDS "")
+    foreach(SHADER ${SHADER_SOURCES})
+        get_filename_component(SHADER_NAME ${SHADER} NAME)
+        list(APPEND SHADER_COMMANDS
+                COMMAND ${GLSLC} ${SHADER} -o ${SHADER}.spv
+                COMMAND ${CMAKE_COMMAND} -E echo "Compiled: ${SHADER_NAME}"
+        )
+    endforeach()
+    add_custom_target(shaders ALL ${SHADER_COMMANDS})
+    add_dependencies(${TARGET_NAME} shaders)
+endfunction()
+
 
 if(MSVC)
     add_compile_options($<$<CONFIG:Debug>:/Zi>)
@@ -53,27 +76,8 @@ add_executable(flowish main.cpp
         Core/Vertex.h
         Base/FlowishBuffer.cpp
         Base/FlowishBuffer.h)
+compile_shaders(flowish ${CMAKE_SOURCE_DIR}/Shader)
 
 target_link_libraries(flowish PRIVATE Vulkan::Vulkan glfw glm::glm)
 target_include_directories(flowish PRIVATE ${Vulkan_INCLUDE_DIRS})
 
-find_program(GLSLC glslc HINTS ${Vulkan_GLSLC_EXECUTABLE} $ENV{VULKAN_SDK}/Bin)
-
-file(GLOB SHADER_SOURCES
-        ${CMAKE_SOURCE_DIR}/Shader/*.vert
-        ${CMAKE_SOURCE_DIR}/Shader/*.frag
-)
-
-foreach(SHADER ${SHADER_SOURCES})
-    get_filename_component(SHADER_NAME ${SHADER} NAME)
-    set(SPV ${CMAKE_SOURCE_DIR}/Shader/${SHADER_NAME}.spv)
-    add_custom_command(
-            OUTPUT ${SPV}
-            COMMAND ${GLSLC} ${SHADER} -o ${SPV}
-            DEPENDS ${SHADER}
-            COMMENT "Compiling shader: ${SHADER_NAME}"
-    )
-    list(APPEND SPV_FILES ${SPV})
-endforeach()
-
-add_custom_target(shaders ALL DEPENDS ${SPV_FILES})
