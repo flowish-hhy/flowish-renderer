@@ -93,5 +93,5 @@ add_executable(flowish main.cpp
 compile_shaders(flowish ${CMAKE_SOURCE_DIR}/Shader)
 
 target_link_libraries(flowish PRIVATE Vulkan::Vulkan glfw glm::glm tinyobjloader)
-target_include_directories(flowish PRIVATE ${Vulkan_INCLUDE_DIRS})
+target_include_directories(flowish PRIVATE ${Vulkan_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/3rdparty/stb)
 
