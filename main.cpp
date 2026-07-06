@@ -113,14 +113,13 @@ void drawFrame(
     vkAcquireNextImageKHR(device,swapchain,UINT64_MAX,sync.imageAvailable(),VK_NULL_HANDLE,&imageIndex);
 
     auto t = static_cast<float>(glfwGetTime());
-    glm::mat4 recenter = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.11f, 0.0f));
-    glm::mat4 rot      = glm::rotate(glm::mat4(1.0f), t * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    glm::mat4 scale    = glm::scale(glm::mat4(1.0f), glm::vec3(6.0f));
+    glm::mat4 recenter = glm::translate(glm::mat4(1.0f), glm::vec3(-0.08f, -0.01f, -0.41f));
+    glm::mat4 rot      = glm::rotate(glm::mat4(1.0f), t * glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     UniformBufferObject ubo = {};
-    ubo.model = scale * rot * recenter;
-    ubo.view  = glm::lookAt(glm::vec3(0.0f, 0.0f, 1.5f),
+    ubo.model = rot * recenter;
+    ubo.view  = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
                             glm::vec3(0.0f, 0.0f, 0.0f),
-                            glm::vec3(0.0f, 1.0f, 0.0f));
+                            glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.proj  = glm::perspective(glm::radians(45.0f),
                                  static_cast<float>(extent.width) / static_cast<float>(extent.height),
                                  0.1f, 10.0f);
@@ -183,7 +182,7 @@ int main() {
     FlowishRenderPass renderpass(device.device(), swapchain.format());
     FlowishCommandPool commandPool(device.device(), device.queueFamilyIndices());
 
-    FlowishModel model("Model/bunny.obj");
+    FlowishModel model("Assets/viking_room.obj");
     const auto& vertices = model.vertices();
     const auto& indices  = model.indices();
     const uint32_t indexCount = static_cast<uint32_t>(indices.size());
