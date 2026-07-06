@@ -139,35 +139,49 @@ int main() {
     FlowishDevice device(instance.handle(),surface.handle());
     FlowishSwapchain swapchain(device.physicalDevice(),device.device(),surface.handle(),window,device.queueFamilyIndices());
     FlowishRenderPass renderpass(device.device(), swapchain.format());
+    FlowishCommandPool commandPool(device.device(), device.queueFamilyIndices());
 
     std::vector<Vertex> vertices = {
         {{-0.5f , -0.5f } , {1, 0 ,0}},
-        {{0.5f , -0.5f } , {1, 0 ,0}},
-        {{0.5f , 0.5f } , {1, 0 ,0}},
+        {{0.5f , -0.5f } , {0, 1 ,0}},
+        {{0.5f , 0.5f } , {0, 0 ,1}},
         {{-0.5f , 0.5f } , {1, 1 ,1}},
     };
     VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
-    FlowishBuffer buffer(device.physicalDevice(),device.device(),bufferSize,
-        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+    FlowishBuffer staging(device.physicalDevice(),device.device(),bufferSize,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     void * data;
-    vkMapMemory(device.device(), buffer.memory(), 0, bufferSize, 0, &data);
+    vkMapMemory(device.device(), staging.memory(), 0, bufferSize, 0, &data);
     memcpy(data, &vertices[0], bufferSize);
-    vkUnmapMemory(device.device(), buffer.memory());
+    vkUnmapMemory(device.device(), staging.memory());
+
+    FlowishBuffer buffer(device.physicalDevice(),device.device(),bufferSize,
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    copyBuffer(device.device(), commandPool.handle(), device.graphicsQueue(),
+        staging.handle(),buffer.handle(), bufferSize );
+
 
 
     std::vector<uint32_t> indices = {0 , 1, 2, 2 ,3 ,0};
     VkDeviceSize indexSize = sizeof(uint32_t) * 6;
-    FlowishBuffer indexBuffer(device.physicalDevice(),device.device(),indexSize,
-    VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+    FlowishBuffer stagingIndexBuffer(device.physicalDevice(),device.device(),indexSize,
+    VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    vkMapMemory(device.device(), indexBuffer.memory(), 0, indexSize, 0, &data);
+    vkMapMemory(device.device(), stagingIndexBuffer.memory(), 0, indexSize, 0, &data);
     memcpy(data, &indices[0], indexSize);
-    vkUnmapMemory(device.device(), indexBuffer.memory());
+    vkUnmapMemory(device.device(), stagingIndexBuffer.memory());
 
+    FlowishBuffer indexBuffer(device.physicalDevice(),device.device(),indexSize,
+    VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
+    copyBuffer(device.device(), commandPool.handle(), device.graphicsQueue(),
+        stagingIndexBuffer.handle(),indexBuffer.handle(), indexSize );
 
 
     auto vertCode = readFile("Shader/triangle.vert.spv");
@@ -176,7 +190,6 @@ int main() {
     FlowishShaderModule fragShader(device.device(), fragCode);
     FlowishPipeline pipeline(device.device(),renderpass.handle(), vertShader.handle(), fragShader.handle());
     FlowishFramebuffers framebuffers(device.device(), renderpass.handle(), swapchain.imageViews(), swapchain.extent());
-    FlowishCommandPool commandPool(device.device(), device.queueFamilyIndices());
     FlowishSyncObjects sync(device.device());
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
