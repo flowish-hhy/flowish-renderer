@@ -117,15 +117,21 @@ void drawFrame(
     auto t = static_cast<float>(glfwGetTime());
     glm::mat4 recenter = glm::translate(glm::mat4(1.0f), glm::vec3(-0.08f, -0.01f, -0.41f));
     glm::mat4 rot      = glm::rotate(glm::mat4(1.0f), t * glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::vec3 cameraPos(2.0f, 2.0f, 2.0f);
+    glm::vec3 lightPos(2.0f, 2.0f, 3.0f);
     UniformBufferObject ubo = {};
     ubo.model = rot * recenter;
-    ubo.view  = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
+    ubo.view  = glm::lookAt(cameraPos,
                             glm::vec3(0.0f, 0.0f, 0.0f),
                             glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.proj  = glm::perspective(glm::radians(45.0f),
                                  static_cast<float>(extent.width) / static_cast<float>(extent.height),
                                  0.1f, 10.0f);
     ubo.proj[1][1] *= -1;
+    ubo.normalMatrix = glm::transpose(glm::inverse(ubo.model));
+    ubo.lightPos     = glm::vec4(lightPos,  1.0f);
+    ubo.viewPos      = glm::vec4(cameraPos, 1.0f);
+    ubo.lightColor   = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     memcpy(uboMapped, &ubo, sizeof(ubo));
 
     recordCommandBuffer(commandBuffer,renderPass,framebuffers.get(imageIndex),extent,pipeline,
