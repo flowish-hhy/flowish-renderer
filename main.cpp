@@ -1,6 +1,8 @@
 #include <iostream>
 #include <GLFW/glfw3.h>
 
+#include "Base/FlowishBuffer.h"
+#include "Core/Vertex.h"
 #include "Base/FlowishCommandPool.h"
 #include "Base/FlowishDevice.h"
 #include "Base/FlowishFrameBuffer.h"
@@ -18,7 +20,8 @@ void recordCommandBuffer(
     VkRenderPass renderPass,
     VkFramebuffer framebuffer,
     VkExtent2D extent,
-    VkPipeline pipeline) {
+    VkPipeline pipeline,
+    VkBuffer vertexBuffer) {
     vkResetCommandBuffer(commandBuffer, 0);
     VkCommandBufferBeginInfo beginInfo = {};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -54,6 +57,9 @@ void recordCommandBuffer(
     scissor.offset = {0, 0};
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
+    VkBuffer vbs[] = {vertexBuffer};
+    VkDeviceSize offsets[1] = { 0 };
+    vkCmdBindVertexBuffers(commandBuffer, 0 , 1, vbs, offsets);
     vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
@@ -72,7 +78,8 @@ void drawFrame(
     FlowishFramebuffers& framebuffers,
     VkExtent2D extent,
     VkPipeline pipeline,
-    FlowishSyncObjects& sync) {
+    FlowishSyncObjects& sync,
+    VkBuffer vertexBuffer) {
 
     VkFence fence = sync.getFence();
     vkWaitForFences(device, 1, &fence,VK_TRUE, UINT64_MAX);
@@ -81,7 +88,7 @@ void drawFrame(
     uint32_t imageIndex = 0;
     vkAcquireNextImageKHR(device,swapchain,UINT64_MAX,sync.imageAvailable(),VK_NULL_HANDLE,&imageIndex);
 
-    recordCommandBuffer(commandBuffer,renderPass,framebuffers.get(imageIndex),extent,pipeline);
+    recordCommandBuffer(commandBuffer,renderPass,framebuffers.get(imageIndex),extent,pipeline,vertexBuffer);
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -130,10 +137,25 @@ int main() {
     FlowishSwapchain swapchain(device.physicalDevice(),device.device(),surface.handle(),window,device.queueFamilyIndices());
     FlowishRenderPass renderpass(device.device(), swapchain.format());
 
+    std::vector<Vertex> vertices = {
+        {{0.0f , -0.5f } , {1, 0 ,0}},
+        {{0.0f , -0.5f } , {1, 0 ,0}},
+        {{0.0f , -0.5f } , {1, 0 ,0}},
+    };
+    VkDeviceSize bufferSize = sizeof(vertices);
+    FlowishBuffer buffer(device.physicalDevice(),device.device(),bufferSize,
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    void * data;
+    vkMapMemory(device.device(), buffer.memory(), 0, bufferSize, 0, &data);
+    memcpy(data, &vertices[0], bufferSize);
+    vkUnmapMemory(device.device(), buffer.memory());
+
     auto vertCode = readFile("Shader/triangle.vert.spv");
     auto fragCode = readFile("Shader/triangle.frag.spv");
     FlowishShaderModule vertShader(device.device(), vertCode);
-    FlowishShaderModule fragShader(device.device(), fragCode);\
+    FlowishShaderModule fragShader(device.device(), fragCode);
     FlowishPipeline pipeline(device.device(),renderpass.handle(), vertShader.handle(), fragShader.handle());
     FlowishFramebuffers framebuffers(device.device(), renderpass.handle(), swapchain.imageViews(), swapchain.extent());
     FlowishCommandPool commandPool(device.device(), device.queueFamilyIndices());
@@ -142,7 +164,7 @@ int main() {
         glfwPollEvents();
         drawFrame(device.device(), swapchain.handle(), device.graphicsQueue(), device.presentQueue()
             , commandPool.commandBuffer(), renderpass.handle(), framebuffers, swapchain.extent(),
-            pipeline.handle(), sync);
+            pipeline.handle(), sync, buffer.handle());
 
     }
 

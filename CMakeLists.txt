@@ -16,6 +16,13 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(glfw)
 
+FetchContent_Declare(
+        glm
+        GIT_REPOSITORY https://github.com/g-truc/glm.git
+        GIT_TAG        1.0.1
+)
+FetchContent_MakeAvailable(glm)
+
 if(MSVC)
     add_compile_options($<$<CONFIG:Debug>:/Zi>)
     add_link_options($<$<CONFIG:Debug>:/DEBUG>)
@@ -42,7 +49,31 @@ add_executable(flowish main.cpp
         Base/FlowishCommandPool.cpp
         Base/FlowishCommandPool.h
         Base/FlowishSyncObjects.cpp
-        Base/FlowishSyncObjects.h)
+        Base/FlowishSyncObjects.h
+        Core/Vertex.h
+        Base/FlowishBuffer.cpp
+        Base/FlowishBuffer.h)
 
-target_link_libraries(flowish PRIVATE Vulkan::Vulkan glfw)
+target_link_libraries(flowish PRIVATE Vulkan::Vulkan glfw glm::glm)
 target_include_directories(flowish PRIVATE ${Vulkan_INCLUDE_DIRS})
+
+find_program(GLSLC glslc HINTS ${Vulkan_GLSLC_EXECUTABLE} $ENV{VULKAN_SDK}/Bin)
+
+file(GLOB SHADER_SOURCES
+        ${CMAKE_SOURCE_DIR}/Shader/*.vert
+        ${CMAKE_SOURCE_DIR}/Shader/*.frag
+)
+
+foreach(SHADER ${SHADER_SOURCES})
+    get_filename_component(SHADER_NAME ${SHADER} NAME)
+    set(SPV ${CMAKE_SOURCE_DIR}/Shader/${SHADER_NAME}.spv)
+    add_custom_command(
+            OUTPUT ${SPV}
+            COMMAND ${GLSLC} ${SHADER} -o ${SPV}
+            DEPENDS ${SHADER}
+            COMMENT "Compiling shader: ${SHADER_NAME}"
+    )
+    list(APPEND SPV_FILES ${SPV})
+endforeach()
+
+add_custom_target(shaders ALL DEPENDS ${SPV_FILES})
