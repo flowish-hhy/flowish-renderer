@@ -6,11 +6,12 @@
 
 class FlowishFramebuffers {
 public:
-    FlowishFramebuffers(VkDevice device, VkRenderPass renderPass, const std::vector<VkImageView>& imageView, VkExtent2D extent);
+    FlowishFramebuffers(VkDevice device, VkRenderPass renderPass, const std::vector<VkImageView>& imageView, VkExtent2D extent, VkImageView depthImage);
     ~FlowishFramebuffers();
     VkFramebuffer get(uint32_t index) { return _framebuffers[index]; };
 
 private:
     std::vector<VkFramebuffer> _framebuffers;
     VkDevice _device;
+
 };

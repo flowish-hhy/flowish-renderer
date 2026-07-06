@@ -14,7 +14,6 @@ public:
     [[nodiscard]] VkDeviceSize size() const {return _size; };
 
 private:
-    uint32_t findMemoryType(uint32_t typeBits, VkMemoryPropertyFlags properties);
 
     VkBuffer _buffer = VK_NULL_HANDLE;
     VkDeviceMemory _memory = VK_NULL_HANDLE;

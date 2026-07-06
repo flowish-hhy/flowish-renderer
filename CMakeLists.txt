@@ -77,7 +77,10 @@ add_executable(flowish main.cpp
         Base/FlowishBuffer.cpp
         Base/FlowishBuffer.h
         Base/FlowishDescriptor.cpp
-        Base/FlowishDescriptor.h)
+        Base/FlowishDescriptor.h
+        Base/FlowishImage.cpp
+        Base/FlowishImage.h
+        Utils/Utils.cpp)
 compile_shaders(flowish ${CMAKE_SOURCE_DIR}/Shader)
 
 target_link_libraries(flowish PRIVATE Vulkan::Vulkan glfw glm::glm)

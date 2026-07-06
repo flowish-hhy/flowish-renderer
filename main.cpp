@@ -15,6 +15,8 @@
 #include "Base/FlowishSwapchain.h"
 #include "Base/FlowishSyncObjects.h"
 #include <glm/gtc/matrix_transform.hpp>
+
+#include "Base/FlowishImage.h"
 #include "Utils/Utils.h"
 
 void recordCommandBuffer(
@@ -34,16 +36,24 @@ void recordCommandBuffer(
         throw std::runtime_error("failed to begin recording command buffer!");
     }
 
-    VkClearValue clearColor = {};
-    clearColor.color = { 0.0f, 0.0f, 0.0f, 1.0f };
+
+    VkClearValue clearColors[2] = {
+        {
+            .color = {0.0f, 0.0f, 0.0f, 1.0f},
+        },
+        {
+            .depthStencil = {1.0f, 0},
+        }
+    };
+
     VkRenderPassBeginInfo renderPassInfo = {};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassInfo.renderPass = renderPass;
     renderPassInfo.framebuffer = framebuffer;
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = extent;
-    renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &clearColor;
+    renderPassInfo.clearValueCount = 2;
+    renderPassInfo.pClearValues = clearColors;
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
@@ -159,6 +169,11 @@ int main() {
     FlowishSurface surface(instance.handle(),window);
     FlowishDevice device(instance.handle(),surface.handle());
     FlowishSwapchain swapchain(device.physicalDevice(),device.device(),surface.handle(),window,device.queueFamilyIndices());
+
+    FlowishImage depthImage(device.device(),device.physicalDevice(),swapchain.extent().width,
+        swapchain.extent().height,VK_FORMAT_D32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
+
     FlowishRenderPass renderpass(device.device(), swapchain.format());
     FlowishCommandPool commandPool(device.device(), device.queueFamilyIndices());
 
@@ -209,7 +224,6 @@ int main() {
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     descriptor.writeUniformBuffer(0,uniformBuffer.handle(),sizeof(UniformBufferObject));
-
     void* uboMapped = nullptr;
     vkMapMemory(device.device(), uniformBuffer.memory(), 0, sizeof(UniformBufferObject), 0, &uboMapped);
 
@@ -219,7 +233,7 @@ int main() {
     FlowishShaderModule vertShader(device.device(), vertCode);
     FlowishShaderModule fragShader(device.device(), fragCode);
     FlowishPipeline pipeline(device.device(),renderpass.handle(), vertShader.handle(), fragShader.handle(),descriptor.layout());
-    FlowishFramebuffers framebuffers(device.device(), renderpass.handle(), swapchain.imageViews(), swapchain.extent());
+    FlowishFramebuffers framebuffers(device.device(), renderpass.handle(), swapchain.imageViews(), swapchain.extent(),depthImage.view());
     FlowishSyncObjects sync(device.device());
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
@@ -238,14 +252,5 @@ int main() {
     glfwTerminate();
 
     return 0;
-}
-
-FlowishDescriptor::~FlowishDescriptor() {
-    if (_descriptorSetLayout != VK_NULL_HANDLE) {
-        vkDestroyDescriptorSetLayout(_device, _descriptorSetLayout, nullptr);
-    }
-    if (_descriptorPool != VK_NULL_HANDLE) {
-        vkDestroyDescriptorPool(_device, _descriptorPool, nullptr);
-    }
 }
 

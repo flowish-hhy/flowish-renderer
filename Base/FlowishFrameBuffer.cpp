@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 
-FlowishFramebuffers::FlowishFramebuffers(VkDevice device, VkRenderPass renderPass, const std::vector<VkImageView> &imageViews, VkExtent2D extent)
+FlowishFramebuffers::FlowishFramebuffers(VkDevice device, VkRenderPass renderPass, const std::vector<VkImageView> &imageViews, VkExtent2D extent,VkImageView depthImage)
     : _device(device){
     _framebuffers.resize(imageViews.size());
     for (int i = 0; i < imageViews.size(); i++) {
@@ -12,8 +12,9 @@ FlowishFramebuffers::FlowishFramebuffers(VkDevice device, VkRenderPass renderPas
         framebufferCreateInfo.width = extent.width;
         framebufferCreateInfo.height = extent.height;
         framebufferCreateInfo.layers = 1;
-        framebufferCreateInfo.attachmentCount = 1;
-        framebufferCreateInfo.pAttachments = &imageViews[i];
+        framebufferCreateInfo.attachmentCount = 2;
+        VkImageView attachments[2] = { imageViews[i], depthImage};
+        framebufferCreateInfo.pAttachments = attachments;
         if (vkCreateFramebuffer(_device, &framebufferCreateInfo, nullptr, &_framebuffers[i]) != VK_SUCCESS) {
             throw std::runtime_error("failed to create framebuffer");
         }

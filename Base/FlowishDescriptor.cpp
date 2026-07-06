@@ -6,7 +6,7 @@
 
 FlowishDescriptor::FlowishDescriptor(VkDevice device)
     : _device(device){
-    VkDescriptorSetLayoutBinding b;
+    VkDescriptorSetLayoutBinding b {};
     b.binding = 0;
     b.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     b.descriptorCount = 1;
@@ -64,3 +64,13 @@ void FlowishDescriptor::writeUniformBuffer(uint32_t binding, VkBuffer buffer, Vk
 
 
 }
+
+FlowishDescriptor::~FlowishDescriptor() {
+    if (_descriptorSetLayout != VK_NULL_HANDLE) {
+        vkDestroyDescriptorSetLayout(_device, _descriptorSetLayout, nullptr);
+    }
+    if (_descriptorPool != VK_NULL_HANDLE) {
+        vkDestroyDescriptorPool(_device, _descriptorPool, nullptr);
+    }
+}
+
