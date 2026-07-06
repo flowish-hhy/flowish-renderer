@@ -17,6 +17,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "Base/FlowishImage.h"
+#include "Model/FlowishModel.h"
 #include "Utils/Utils.h"
 
 void recordCommandBuffer(
@@ -28,7 +29,8 @@ void recordCommandBuffer(
     VkPipelineLayout pipelineLayout,
     VkDescriptorSet descriptorSet,
     VkBuffer vertexBuffer,
-    VkBuffer indexBuffer) {
+    VkBuffer indexBuffer,
+    uint32_t indexCount) {
     vkResetCommandBuffer(commandBuffer, 0);
     VkCommandBufferBeginInfo beginInfo = {};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -78,7 +80,7 @@ void recordCommandBuffer(
     vkCmdBindIndexBuffer(commandBuffer,indexBuffer,0,VK_INDEX_TYPE_UINT32);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
         pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
-    vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
@@ -101,6 +103,7 @@ void drawFrame(
     FlowishSyncObjects& sync,
     VkBuffer vertexBuffer,
     VkBuffer indexBuffer,
+    uint32_t indexCount,
     void* uboMapped) {
     VkFence fence = sync.getFence();
     vkWaitForFences(device, 1, &fence,VK_TRUE, UINT64_MAX);
@@ -110,11 +113,14 @@ void drawFrame(
     vkAcquireNextImageKHR(device,swapchain,UINT64_MAX,sync.imageAvailable(),VK_NULL_HANDLE,&imageIndex);
 
     auto t = static_cast<float>(glfwGetTime());
+    glm::mat4 recenter = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.11f, 0.0f));
+    glm::mat4 rot      = glm::rotate(glm::mat4(1.0f), t * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 scale    = glm::scale(glm::mat4(1.0f), glm::vec3(6.0f));
     UniformBufferObject ubo = {};
-    ubo.model = glm::rotate(glm::mat4(1.0f), t * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.view  = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
+    ubo.model = scale * rot * recenter;
+    ubo.view  = glm::lookAt(glm::vec3(0.0f, 0.0f, 1.5f),
                             glm::vec3(0.0f, 0.0f, 0.0f),
-                            glm::vec3(0.0f, 0.0f, 1.0f));
+                            glm::vec3(0.0f, 1.0f, 0.0f));
     ubo.proj  = glm::perspective(glm::radians(45.0f),
                                  static_cast<float>(extent.width) / static_cast<float>(extent.height),
                                  0.1f, 10.0f);
@@ -122,7 +128,7 @@ void drawFrame(
     memcpy(uboMapped, &ubo, sizeof(ubo));
 
     recordCommandBuffer(commandBuffer,renderPass,framebuffers.get(imageIndex),extent,pipeline,
-        pipelineLayout, descriptorSet, vertexBuffer,indexBuffer);
+        pipelineLayout, descriptorSet, vertexBuffer,indexBuffer,indexCount);
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -177,12 +183,11 @@ int main() {
     FlowishRenderPass renderpass(device.device(), swapchain.format());
     FlowishCommandPool commandPool(device.device(), device.queueFamilyIndices());
 
-    std::vector<Vertex> vertices = {
-        {{-0.5f , -0.5f } , {1, 0 ,0}},
-        {{0.5f , -0.5f } , {0, 1 ,0}},
-        {{0.5f , 0.5f } , {0, 0 ,1}},
-        {{-0.5f , 0.5f } , {1, 1 ,1}},
-    };
+    FlowishModel model("Model/bunny.obj");
+    const auto& vertices = model.vertices();
+    const auto& indices  = model.indices();
+    const uint32_t indexCount = static_cast<uint32_t>(indices.size());
+
     VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
     FlowishBuffer staging(device.physicalDevice(),device.device(),bufferSize,
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -190,7 +195,7 @@ int main() {
 
     void * data;
     vkMapMemory(device.device(), staging.memory(), 0, bufferSize, 0, &data);
-    memcpy(data, &vertices[0], bufferSize);
+    memcpy(data, vertices.data(), bufferSize);
     vkUnmapMemory(device.device(), staging.memory());
 
     FlowishBuffer buffer(device.physicalDevice(),device.device(),bufferSize,
@@ -202,14 +207,13 @@ int main() {
 
 
 
-    std::vector<uint32_t> indices = {0 , 1, 2, 2 ,3 ,0};
-    VkDeviceSize indexSize = sizeof(uint32_t) * 6;
+    VkDeviceSize indexSize = sizeof(uint32_t) * indices.size();
     FlowishBuffer stagingIndexBuffer(device.physicalDevice(),device.device(),indexSize,
     VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     vkMapMemory(device.device(), stagingIndexBuffer.memory(), 0, indexSize, 0, &data);
-    memcpy(data, &indices[0], indexSize);
+    memcpy(data, indices.data(), indexSize);
     vkUnmapMemory(device.device(), stagingIndexBuffer.memory());
 
     FlowishBuffer indexBuffer(device.physicalDevice(),device.device(),indexSize,
@@ -240,7 +244,7 @@ int main() {
         drawFrame(device.device(), swapchain.handle(), device.graphicsQueue(), device.presentQueue()
             , commandPool.commandBuffer(), renderpass.handle(), framebuffers, swapchain.extent(),
             pipeline.handle(), pipeline.layout(), descriptor.set(),
-            sync, buffer.handle(), indexBuffer.handle(), uboMapped);
+            sync, buffer.handle(), indexBuffer.handle(), indexCount, uboMapped);
 
     }
 

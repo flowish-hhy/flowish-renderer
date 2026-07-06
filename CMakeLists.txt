@@ -22,6 +22,13 @@ FetchContent_Declare(
         GIT_TAG        1.0.1
 )
 FetchContent_MakeAvailable(glm)
+
+FetchContent_Declare(
+        tinyobjloader
+        GIT_REPOSITORY https://github.com/tinyobjloader/tinyobjloader.git
+        GIT_TAG        v2.0.0rc13
+)
+FetchContent_MakeAvailable(tinyobjloader)
 set(GLSLC "C:/VulkanSDK/1.4.350.0/Bin/glslc.exe")
 
 function(compile_shaders TARGET_NAME SHADER_DIR)
@@ -80,9 +87,11 @@ add_executable(flowish main.cpp
         Base/FlowishDescriptor.h
         Base/FlowishImage.cpp
         Base/FlowishImage.h
-        Utils/Utils.cpp)
+        Utils/Utils.cpp
+        Model/FlowishModel.cpp
+        Model/FlowishModel.h)
 compile_shaders(flowish ${CMAKE_SOURCE_DIR}/Shader)
 
-target_link_libraries(flowish PRIVATE Vulkan::Vulkan glfw glm::glm)
+target_link_libraries(flowish PRIVATE Vulkan::Vulkan glfw glm::glm tinyobjloader)
 target_include_directories(flowish PRIVATE ${Vulkan_INCLUDE_DIRS})
 
