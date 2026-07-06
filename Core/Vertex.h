@@ -20,10 +20,10 @@ static VkVertexInputBindingDescription getBindingDescription() {
 static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
     return {{
         {.location = 0, .binding = 0,
-            .format = VK_FORMAT_R32G32B32_SFLOAT,
+            .format = VK_FORMAT_R32G32_SFLOAT,
             .offset = static_cast<uint32_t>(offsetof(Vertex, pos))},
         {.location = 1, .binding = 0,
-            .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+            .format = VK_FORMAT_R32G32B32_SFLOAT,
             .offset = static_cast<uint32_t>(offsetof(Vertex, color))},
     }};
 }

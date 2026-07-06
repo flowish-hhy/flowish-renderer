@@ -139,10 +139,10 @@ int main() {
 
     std::vector<Vertex> vertices = {
         {{0.0f , -0.5f } , {1, 0 ,0}},
-        {{0.0f , -0.5f } , {1, 0 ,0}},
-        {{0.0f , -0.5f } , {1, 0 ,0}},
+        {{0.5f , 0.5f } , {1, 0 ,0}},
+        {{-0.5f , 0.5f } , {1, 0 ,0}},
     };
-    VkDeviceSize bufferSize = sizeof(vertices);
+    VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
     FlowishBuffer buffer(device.physicalDevice(),device.device(),bufferSize,
         VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);

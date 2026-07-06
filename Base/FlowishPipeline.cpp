@@ -3,6 +3,8 @@
 
 #include <stdexcept>
 
+#include "../Core/Vertex.h"
+
 
 FlowishPipeline::FlowishPipeline(VkDevice _device, VkRenderPass _renderPass, VkShaderModule vert, VkShaderModule frag)
     : _device(_device) {
@@ -34,8 +36,12 @@ FlowishPipeline::FlowishPipeline(VkDevice _device, VkRenderPass _renderPass, VkS
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexAttributeDescriptionCount = 0;
-    vertexInputInfo.vertexBindingDescriptionCount = 0;
+    auto bindingDesc = getBindingDescription();
+    auto attributeDesc = getAttributeDescriptions();
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.pVertexBindingDescriptions = &bindingDesc;
+    vertexInputInfo.vertexAttributeDescriptionCount = 2;
+    vertexInputInfo.pVertexAttributeDescriptions = attributeDesc.data();
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
